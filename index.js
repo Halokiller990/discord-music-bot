@@ -4,6 +4,7 @@ const { REST } = require("@discordjs/rest")
 const { Routes } = require("discord-api-types/v9")
 const fs = require("fs")
 const { Player } = require("discord-player")
+const { VoiceConnectionStatus, entersState } = require('@discordjs/voice')
 
 dotenv.config()
 const TOKEN = process.env.TOKEN
@@ -26,6 +27,19 @@ client.player = new Player(client, {
         highWaterMark: 1 << 25
     }
 })
+
+client.on(VoiceConnectionStatus.Disconnected, async (oldState, newState) => {
+	try {
+		await Promise.race([
+			entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
+			entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
+		]);
+		// Seems to be reconnecting to a new channel - ignore disconnect
+	} catch (error) {
+		// Seems to be a real disconnect which SHOULDN'T be recovered from
+		connection.destroy();
+	}
+});
 
 let commands = []
 
